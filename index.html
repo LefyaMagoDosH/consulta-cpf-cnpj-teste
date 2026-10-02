@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Consulta CPF e CNPJ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap">
+<style>
+/* Layout: uma coluna estreita — campo de busca em cima, ficha do resultado embaixo, como um formulário de repartição */
+:root {
+  --bg: #eef1ef;
+  --panel: #ffffff;
+  --ink: #17221d;
+  --muted: #5b6b63;
+  --line: #d3dbd6;
+  --accent: #0f6b4f;
+  --accent-ink: #ffffff;
+  --accent-soft: #e0efe8;
+  --ok: #1d7a46;  --ok-bg: #e2f3e8;
+  --warn: #8a5a00; --warn-bg: #fbefd6;
+  --bad: #a3271f;  --bad-bg: #f9e3e0;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101614; --panel: #18201d; --ink: #e4ebe7; --muted: #94a59c; --line: #2b3732;
+    --accent: #3fbf8e; --accent-ink: #06231a; --accent-soft: #1b3229;
+    --ok: #6fd39a; --ok-bg: #173323; --warn: #f0c060; --warn-bg: #3a2e12; --bad: #f08a80; --bad-bg: #3d1c19;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101614; --panel: #18201d; --ink: #e4ebe7; --muted: #94a59c; --line: #2b3732;
+  --accent: #3fbf8e; --accent-ink: #06231a; --accent-soft: #1b3229;
+  --ok: #6fd39a; --ok-bg: #173323; --warn: #f0c060; --warn-bg: #3a2e12; --bad: #f08a80; --bad-bg: #3d1c19;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--body);
+  padding-inline: 16px; padding-block: 32px 48px;
+}
+main { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 6px; }
+h1 { font: 700 clamp(26px, 5vw, 34px)/1.1 var(--display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; max-width: 62ch; }
+.tag {
+  justify-self: start; font: 500 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em;
+  color: var(--warn); background: var(--warn-bg); padding: 6px 8px; border-radius: 4px;
+}
+
+.search { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.field { display: grid; gap: 6px; flex: 1 1 260px; min-width: 0; }
+input {
+  font: 500 20px/1.2 var(--mono); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+input.small { font-size: 13px; padding: 9px 12px; }
+input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button {
+  font: 600 15px/1 var(--body); border-radius: 8px; border: 1px solid transparent; cursor: pointer;
+  padding: 0 22px; min-height: 48px;
+}
+.primary { background: var(--accent); color: var(--accent-ink); align-self: end; }
+.primary:disabled { opacity: .6; cursor: wait; }
+.ghost { background: transparent; color: var(--accent); border-color: var(--line); min-height: 34px; padding: 0 12px; font-size: 13px; font-weight: 500; }
+.ghost:hover { background: var(--accent-soft); }
+.hint { font-size: 13px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.kind { font: 500 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+details.cfg summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+details.cfg[open] summary { margin-bottom: 10px; }
+.cfg .grid { display: grid; grid-template-columns: 1fr 120px; gap: 10px; }
+@media (max-width: 480px) { .cfg .grid { grid-template-columns: 1fr; } }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.card-head { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.card-head h2 { font: 700 20px/1.2 var(--display); margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.doc { font: 500 13px/1 var(--mono); color: var(--muted); }
+.pill { font: 600 12px/1 var(--body); padding: 6px 10px; border-radius: 999px; }
+.pill.ok { color: var(--ok); background: var(--ok-bg); }
+.pill.warn { color: var(--warn); background: var(--warn-bg); }
+.pill.bad { color: var(--bad); background: var(--bad-bg); }
+dl { margin: 0; display: grid; }
+.item { display: grid; grid-template-columns: 210px 1fr; gap: 4px 16px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.item:last-child { border-bottom: 0; }
+@media (max-width: 560px) { .item { grid-template-columns: 1fr; } }
+dt { font-size: 13px; color: var(--muted); }
+dd { margin: 0; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+dd .code { font: 500 13px/1 var(--mono); color: var(--accent); margin-right: 6px; }
+dd.none { color: var(--muted); font-weight: 400; font-style: italic; }
+dd ul { margin: 6px 0 0; padding-left: 18px; font-weight: 400; font-size: 14px; display: grid; gap: 4px; }
+
+.err { border: 1px solid var(--bad); background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 14px 18px; }
+.err strong { display: block; margin-bottom: 2px; }
+.raw summary { cursor: pointer; padding: 12px 18px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); }
+.raw pre { margin: 0; padding: 14px 18px; background: var(--bg); font: 12px/1.5 var(--mono); overflow-x: auto; max-height: 360px; }
+.meta { font: 12px/1.4 var(--mono); color: var(--muted); padding: 10px 18px; border-top: 1px solid var(--line); display: flex; gap: 16px; flex-wrap: wrap; }
+footer { font-size: 12px; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .card { animation: in .25s ease-out; } @keyframes in { from { transform: translateY(4px); opacity: .4; } } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="tag">Ambiente de testes</span>
+    <h1>Consulta CPF e CNPJ</h1>
+    <p class="sub">Digite um CPF ou um CNPJ. O tipo é detectado pela quantidade de dígitos. Com o token de testes a API devolve sempre a mesma ficha fictícia, para qualquer número válido.</p>
+  </header>
+
+  <form class="search" id="form" autocomplete="off">
+    <div class="row">
+      <div class="field">
+        <label for="doc">CPF ou CNPJ</label>
+        <input id="doc" inputmode="numeric" placeholder="000.000.000-00" maxlength="18" value="529.982.247-25">
+      </div>
+      <button class="primary" id="go" type="submit">Consultar</button>
+    </div>
+    <div class="hint">
+      <span class="kind" id="kind">CPF</span>
+      <span>Exemplos:</span>
+      <button type="button" class="ghost" data-ex="529.982.247-25">CPF 529.982.247-25</button>
+      <button type="button" class="ghost" data-ex="11.222.333/0001-81">CNPJ 11.222.333/0001-81</button>
+    </div>
+    <details class="cfg">
+      <summary>Configuração da API</summary>
+      <div class="grid">
+        <div class="field">
+          <label for="token">Token</label>
+          <input id="token" class="small" value="5ae973d7a997af13f0aaf2bf60e65803">
+        </div>
+        <div class="field">
+          <label for="pkgcpf">Pacote CPF</label>
+          <input id="pkgcpf" class="small" inputmode="numeric" value="2">
+        </div>
+        <div></div>
+        <div class="field">
+          <label for="pkgcnpj">Pacote CNPJ</label>
+          <input id="pkgcnpj" class="small" inputmode="numeric" value="6">
+        </div>
+      </div>
+    </details>
+  </form>
+
+  <section id="out" aria-live="polite"></section>
+
+  <footer>Dados de <span style="font-family:var(--mono)">api.cpfcnpj.com.br</span>. Pacote 2 (CPF) traz nome, nascimento e mãe. Pacote 6 (CNPJ) traz cadastro completo.</footer>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const API = "https://api.cpfcnpj.com.br";
+const onlyDigits = (s) => (s || "").replace(/\D/g, "");
+
+function maskDoc(d) {
+  d = d.slice(0, 14);
+  if (d.length <= 11) {
+    return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
+  }
+  return d.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function validCPF(c) {
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  for (let t = 9; t < 11; t++) {
+    let s = 0;
+    for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i);
+    if (((s * 10) % 11) % 10 !== +c[t]) return false;
+  }
+  return true;
+}
+function validCNPJ(c) {
+  if (c.length !== 14 || /^(\d)\1+$/.test(c)) return false;
+  const calc = (n) => {
+    const w = n === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2];
+    const s = w.reduce((a, wi, i) => a + +c[i] * wi, 0);
+    const r = s % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === +c[12] && calc(13) === +c[13];
+}
+
+const esc = (v) => String(v).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+const val = (v) => v !== undefined && v !== null && String(v).trim() !== "";
+
+function item(label, html, missingText = "Não informado pela API") {
+  return html
+    ? `<div class="item"><dt>${label}</dt><dd>${html}</dd></div>`
+    : `<div class="item"><dt>${label}</dt><dd class="none">${missingText}</dd></div>`;
+}
+
+function updateKind() {
+  const d = onlyDigits($("#doc").value);
+  $("#kind").textContent = d.length > 11 ? "CNPJ" : "CPF";
+}
+
+$("#doc").addEventListener("input", (e) => {
+  e.target.value = maskDoc(onlyDigits(e.target.value));
+  updateKind();
+});
+document.querySelectorAll("[data-ex]").forEach((b) =>
+  b.addEventListener("click", () => { $("#doc").value = b.dataset.ex; updateKind(); consultar(); })
+);
+$("#form").addEventListener("submit", (e) => { e.preventDefault(); consultar(); });
+
+function showError(title, detail) {
+  $("#out").innerHTML = `<div class="err" role="alert"><strong>${esc(title)}</strong>${esc(detail || "")}</div>`;
+}
+
+async function consultar() {
+  const d = onlyDigits($("#doc").value);
+  const token = $("#token").value.trim();
+  let tipo;
+  if (d.length === 11) {
+    if (!validCPF(d)) return showError("CPF inválido.", "Os dígitos verificadores não conferem. Confira o número digitado.");
+    tipo = "cpf";
+  } else if (d.length === 14) {
+    if (!validCNPJ(d)) return showError("CNPJ inválido.", "Os dígitos verificadores não conferem. Confira o número digitado.");
+    tipo = "cnpj";
+  } else {
+    return showError("Número incompleto.", "CPF tem 11 dígitos e CNPJ tem 14.");
+  }
+  if (!token) return showError("Falta o token.", "Preencha o token em Configuração da API.");
+
+  const pacote = onlyDigits(tipo === "cpf" ? $("#pkgcpf").value : $("#pkgcnpj").value) || (tipo === "cpf" ? "2" : "6");
+  const url = `${API}/${encodeURIComponent(token)}/${pacote}/${d}`;
+  const btn = $("#go");
+  btn.disabled = true; btn.textContent = "Consultando…";
+  const t0 = performance.now();
+  try {
+    const r = await fetch(url, { headers: { Accept: "application/json" } });
+    const txt = await r.text();
+    let j;
+    try { j = JSON.parse(txt); } catch { throw new Error(`Resposta inesperada da API (HTTP ${r.status}).`); }
+    const ms = Math.round(performance.now() - t0);
+    if (j.status !== 1) {
+      const code = j.erroCodigo ? ` (código ${j.erroCodigo})` : "";
+      return showError("A API recusou a consulta" + code + ".", j.erro || "Sem detalhe.");
+    }
+    $("#out").innerHTML = tipo === "cpf" ? renderCPF(j, ms) : renderCNPJ(j, ms);
+  } catch (err) {
+    showError("Não foi possível falar com a API.", err.message === "Failed to fetch" ? "Verifique a internet ou se a API está no ar." : err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Consultar";
+  }
+}
+
+function footerMeta(j, ms) {
+  return `<div class="meta"><span>pacote ${esc(j.pacoteUsado ?? "-")}</span><span>saldo ${esc(j.saldo ?? "-")}</span><span>id ${esc(j.consultaID ?? "-")}</span><span>${ms} ms</span></div>
+  <details class="raw"><summary>Ver resposta completa (JSON)</summary><pre>${esc(JSON.stringify(j, null, 2))}</pre></details>`;
+}
+
+function renderCPF(j, ms) {
+  const generos = { M: "Masculino", F: "Feminino" };
+  return `<article class="card">
+    <div class="card-head"><h2>${esc(j.nome || "Sem nome")}</h2><span class="doc">CPF ${esc(j.cpf || "")}</span></div>
+    <dl>
+      ${item("Nome", val(j.nome) && esc(j.nome))}
+      ${item("Data de nascimento", val(j.nascimento) && esc(j.nascimento), "Não vem neste pacote")}
+      ${item("Nome da mãe", val(j.mae) && esc(j.mae), "Não vem neste pacote")}
+      ${item("Nome do pai", val(j.pai) && esc(j.pai), "A API não fornece o nome do pai")}
+      ${val(j.genero) ? item("Gênero", esc(generos[j.genero] || j.genero)) : ""}
+    </dl>
+    ${footerMeta(j, ms)}
+  </article>`;
+}
+
+function renderCNPJ(j, ms) {
+  const e = j.matrizEndereco || {};
+  const linha1 = [[e.tipo, e.logradouro].filter(val).join(" "), e.numero, e.complemento].filter(val).join(", ");
+  const linha2 = [e.bairro, [e.cidade, e.uf].filter(val).join("/"), val(e.cep) ? "CEP " + e.cep : ""].filter(val).join(" · ");
+  const endereco = [linha1, linha2].filter(val).map(esc).join("<br>");
+
+  const c = j.cnae || {};
+  const cnaeCod = c.subClasse || c.fiscal;
+  const sec = Array.isArray(c.secundarias) ? c.secundarias : [];
+  const secHtml = sec.length
+    ? `<ul>${sec.map((s) => `<li><span class="code">${esc(s.subclasse || s.id)}</span>${esc(s.descricao || "")}</li>`).join("")}</ul>`
+    : "";
+
+  const n = j.naturezaJuridica || {};
+  const nat = val(n.descricao) ? `${val(n.codigo) ? `<span class="code">${esc(n.codigo)}</span>` : ""}${esc(n.descricao)}` : "";
+
+  const sit = j.situacao || {};
+  const sitNome = (sit.nome || "").toString();
+  const cls = /ativa/i.test(sitNome) ? "ok" : /baixada|nula/i.test(sitNome) ? "bad" : "warn";
+  const pill = sitNome ? `<span class="pill ${cls}" title="${esc([sit.data, sit.motivo && sit.motivo.descricao].filter(val).join(" · "))}">${esc(sitNome)}</span>` : "";
+
+  return `<article class="card">
+    <div class="card-head"><div><h2>${esc(j.razao || "Sem razão social")}</h2><span class="doc">CNPJ ${esc(j.cnpj || "")}${val(j.tipo) ? " · " + esc(j.tipo) : ""}</span></div>${pill}</div>
+    <dl>
+      ${item("Razão social", val(j.razao) && esc(j.razao))}
+      ${val(j.fantasia) ? item("Nome fantasia", esc(j.fantasia)) : ""}
+      ${item("Data de constituição", val(j.inicioAtividade) && esc(j.inicioAtividade), "Não vem neste pacote")}
+      ${item("Endereço", endereco, "Não vem neste pacote")}
+      ${item("CNAE principal", val(cnaeCod) && `<span class="code">${esc(cnaeCod)}</span>`, "Não vem neste pacote")}
+      ${item("Atividade econômica principal", val(c.descricao) && esc(c.descricao) + secHtml.replace("<ul>", `<ul aria-label="Atividades secundárias"><li style="list-style:none;margin-left:-18px;color:var(--muted)">Secundárias:</li>`), "Não vem neste pacote")}
+      ${item("Natureza jurídica", nat, "Não vem neste pacote")}
+    </dl>
+    ${footerMeta(j, ms)}
+  </article>`;
+}
+
+updateKind();
+consultar();
+</script>
+</body>
+</html>
