@@ -96,7 +96,7 @@ dl { margin: 0; display: grid; }
 @media (max-width: 560px) { .item { grid-template-columns: 1fr; } }
 dt { font-size: 13px; color: var(--muted); }
 dd { margin: 0; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
-dd .code { font: 500 13px/1 var(--mono); color: var(--accent); margin-right: 6px; }
+dd .code { font: 500 13px/1 var(--mono); color: var(--accent); margin-right: 8px; }
 dd.none { color: var(--muted); font-weight: 400; font-style: italic; }
 dd ul { margin: 6px 0 0; padding-left: 18px; font-weight: 400; font-size: 14px; display: grid; gap: 4px; }
 
@@ -276,7 +276,9 @@ function renderCPF(j, ms) {
 
 function renderCNPJ(j, ms) {
   const e = j.matrizEndereco || {};
-  const linha1 = [[e.tipo, e.logradouro].filter(val).join(" "), e.numero, e.complemento].filter(val).join(", ");
+  // a API às vezes já traz o tipo dentro do logradouro ("Rua" + "Rua A")
+  const tipoLog = val(e.tipo) && !String(e.logradouro || "").toLowerCase().startsWith(String(e.tipo).toLowerCase()) ? e.tipo : "";
+  const linha1 = [[tipoLog, e.logradouro].filter(val).join(" "), e.numero, e.complemento].filter(val).join(", ");
   const linha2 = [e.bairro, [e.cidade, e.uf].filter(val).join("/"), val(e.cep) ? "CEP " + e.cep : ""].filter(val).join(" · ");
   const endereco = [linha1, linha2].filter(val).map(esc).join("<br>");
 
